@@ -73,9 +73,35 @@
             <PeriodForProperties/>
         </Characteristic>
     </Service>
+    <Service Type="local" PrimaryService="true">
+        <Name>Device Information</Name>
+        <Uuid>180a</Uuid>
+        <Characteristic>
+            <Name>Hardware Revision String</Name>
+            <Uuid>2a27</Uuid>
+            <DefaultValue>0a</DefaultValue>
+            <UsePresentationFormat>0</UsePresentationFormat>
+            <MaxDataLength>9</MaxDataLength>
+            <AttributeLenType>2</AttributeLenType>
+            <ForceOpen>false</ForceOpen>
+            <ForceEncryption>false</ForceEncryption>
+            <Properties>
+                <WriteWithoutResponse>false</WriteWithoutResponse>
+                <Write>false</Write>
+                <Notify>false</Notify>
+                <Indicate>false</Indicate>
+                <Broadcast>false</Broadcast>
+            </Properties>
+            <SetPipe>true</SetPipe>
+            <AckIsAuto>false</AckIsAuto>
+            <PresentationFormatDescriptor Value="0000" Exponent="0" Format="25" NameSpace="01" Unit="0000"/>
+            <PeriodForReadingThisCharacteristic>0</PeriodForReadingThisCharacteristic>
+            <PeriodForProperties/>
+        </Characteristic>
+    </Service>
     <Gapsettings>
-        <Name>RCTelemetry</Name>
-        <DeviceNameWriteLength>11</DeviceNameWriteLength>
+        <Name>RCTelem</Name>
+        <DeviceNameWriteLength>8</DeviceNameWriteLength>
         <LocalPipeOnDeviceName>true</LocalPipeOnDeviceName>
         <DeviceNameShortLength>0</DeviceNameShortLength>
         <Apperance>0000</Apperance>
@@ -108,6 +134,9 @@
         <TimingChangeDelay>5</TimingChangeDelay>
         <ServiceToAdvertise>
             <Uuid BaseUUID="02b20000111b4f7d931e60ca21b874fb" BaseUUIDName="RCTelemetry">0000</Uuid>
+        </ServiceToAdvertise>
+        <ServiceToAdvertise>
+            <Uuid>180a</Uuid>
         </ServiceToAdvertise>
         <CustomAdTypes>
             <AdType index="1">
