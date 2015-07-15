@@ -97,8 +97,8 @@ void RCTelemetry_BLE::setACIcallback(aci_callback aciEvent) {
 
 void  RCTelemetry_BLE::sendRSSI(uint8_t rssi)
 {
-	if (lib_aci_is_pipe_available(&aci_state, PIPE_RC_TELEMETRY_RECEIVER_RSSI_TX)) {
-		lib_aci_send_data(PIPE_RC_TELEMETRY_RECEIVER_RSSI_TX, &rssi, 1);
+	if (lib_aci_is_pipe_available(&aci_state, PIPE_RC_TELEMETRY_RSSI_TX)) {
+		lib_aci_send_data(PIPE_RC_TELEMETRY_RSSI_TX, &rssi, 1);
 		aci_state.data_credit_available--;
 
 		delay(35); // required delay between sends
