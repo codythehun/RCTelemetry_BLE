@@ -86,29 +86,100 @@ RCTelemetry_BLE::RCTelemetry_BLE(int8_t req, int8_t rdy, int8_t rst)
   aci_event = NULL;
   
   memset(device_name, 0x00, 8);
-
+  setDeviceName("RCTelem");
 
   currentStatus = ACI_EVT_DISCONNECTED;
+  firstMsr = msrBuffer;
+  msrCount = 0;
+}
+
+void RCTelemetry_BLE::loop() {
+	pollACI();
+	sendBufferedMeasurement();
 }
 
 void RCTelemetry_BLE::setACIcallback(aci_callback aciEvent) {
   aci_event = aciEvent;
 }
 
+void RCTelemetry_BLE:: publishMeasurement(const Measurement& msr) {
+	//TODO: maybe send right now?
+	pushMsrToBuffer(msr);
+	return;
+}
 
-void  RCTelemetry_BLE::sendRSSI(uint8_t rssi)
-{
-	if (lib_aci_is_pipe_available(&aci_state, PIPE_RC_TELEMETRY_RSSI_TX)) {
-		lib_aci_send_data(PIPE_RC_TELEMETRY_RSSI_TX, &rssi, 1);
-		aci_state.data_credit_available--;
-
-		delay(35); // required delay between sends
+void RCTelemetry_BLE::sendBufferedMeasurement() {
+	if (msrCount == 0) {
 		return;
+	}
+	Measurement* first = peekBuffer();
+	if (sendMeasurement(first)) {
+		dequeueBuffer();
+	}
+	return;
+}
+
+
+Measurement* RCTelemetry_BLE::peekBuffer() {
+	if (msrCount == 0) {
+		return 0;
+	}
+	return firstMsr;
+}
+
+void RCTelemetry_BLE::dequeueBuffer() {
+	--msrCount;
+	firstMsr = wrapBuffPtr(firstMsr + 1);
+}
+
+void RCTelemetry_BLE::pushMsrToBuffer(const Measurement& msr) {
+	Measurement *lastMsr = wrapBuffPtr(firstMsr + msrCount);
+	*lastMsr = msr;
+	if (msrCount == MSR_BUFFER_SIZE) {
+		firstMsr = wrapBuffPtr(firstMsr + 1);
+		//TODO: LOG BUFFER overwrite
+	}
+	else {
+		++msrCount;
+	}
+}
+
+bool RCTelemetry_BLE::sendMeasurement(Measurement* msr) {
+	uint8_t pipe;
+	uint8_t* buff = (uint8_t*) &msr->data.genericValue;
+	uint8_t size = 4;
+
+	switch (msr->type) {
+		case Measurement::ACCELERATION_X: pipe = PIPE_RC_TELEMETRY_ACCELERATIONX_TX; break;
+		case Measurement::ACCELERATION_Y: pipe = PIPE_RC_TELEMETRY_ACCELERATIONY_TX; break;
+		case Measurement::ACCELERATION_Z: pipe = PIPE_RC_TELEMETRY_ACCELERATIONZ_TX; break;
+		case Measurement::AIR_SPEED: pipe = PIPE_RC_TELEMETRY_AIRSPEED_TX; break;
+		case Measurement::BARO_ALTITUDE: pipe = PIPE_RC_TELEMETRY_BAROALTITUDE_TX; break;
+		case Measurement::BATTERY_CELL_VOLTAGE: pipe = PIPE_RC_TELEMETRY_BATTERYCELLVOLTAGE_TX; break;
+		case Measurement::CURRENT: pipe = PIPE_RC_TELEMETRY_CURRENT_TX; break;
+		case Measurement::FUEL: pipe = PIPE_RC_TELEMETRY_FUEL_TX; break;
+		case Measurement::GPS_ALTITUDE: pipe = PIPE_RC_TELEMETRY_GPSALTITUDE_TX; break;
+		case Measurement::GPS_COURSE: pipe = PIPE_RC_TELEMETRY_GPSCOURSE_TX; break;
+		case Measurement::GPS_DATE: pipe = PIPE_RC_TELEMETRY_GPSDATE_TX; break;
+		case Measurement::GPS_LATITUDE: pipe = PIPE_RC_TELEMETRY_GPSLATITUDE_TX; break;
+		case Measurement::GPS_LONGITUDE: pipe = PIPE_RC_TELEMETRY_GPSLONGITUDE_TX; break;
+		case Measurement::GPS_SPEED: pipe = PIPE_RC_TELEMETRY_GPSSPEED_TX; break;
+		case Measurement::GPS_TIME: pipe = PIPE_RC_TELEMETRY_GPSTIME_TX; break;
+		case Measurement::RPM: pipe = PIPE_RC_TELEMETRY_RPM_TX; break;
+		case Measurement::RSSI: pipe = PIPE_RC_TELEMETRY_RSSI_TX; buff = &msr->data.rssi; break;
+		case Measurement::TEMPERATURE: pipe = PIPE_RC_TELEMETRY_TEMPERATURE_TX; break;
+	}
+
+	if (lib_aci_is_pipe_available(&aci_state, pipe)) {
+		bool result = lib_aci_send_data(pipe, buff, size);
+		aci_state.data_credit_available--;
+		delay(35); // required delay between sends
+		return result;
 	}
 
 	pollACI();
+	return false;
 
-	// TODO: how to handle when pipe is not available? retry? cache for later? warning on overriding cache?
 }
 
 
@@ -159,7 +230,7 @@ void RCTelemetry_BLE::pollACI()
               if (debugMode) {
                 Serial.println(F("Error in ACI Setup"));
               }
-            }
+			}
             break;
             
             case ACI_DEVICE_STANDBY:
@@ -193,7 +264,7 @@ void RCTelemetry_BLE::pollACI()
 			Serial.println(F("Evt Cmd respone: Error. Arduino is in an while(1); loop"));
 
           }
-          while (1);
+          //while (1);
         }
         if (ACI_CMD_GET_DEVICE_VERSION == aci_evt->params.cmd_rsp.cmd_opcode)
         {
@@ -213,16 +284,16 @@ void RCTelemetry_BLE::pollACI()
 	  aci_event(ACI_EVT_CONNECTED);
         
 	// TODO: how to adapt this to multiple pipes?
-      case ACI_EVT_PIPE_STATUS:
-     /*   if (lib_aci_is_pipe_available(&aci_state, PIPE_UART_OVER_BTLE_UART_TX_TX) && (false == timing_change_done))
+  /*    case ACI_EVT_PIPE_STATUS:
+        if (lib_aci_is_pipe_available(&aci_state, PIPE_UART_OVER_BTLE_UART_TX_TX) && (false == timing_change_done))
         {
           lib_aci_change_timing_GAP_PPCP(); // change the timing on the link as specified in the nRFgo studio -> nRF8001 conf. -> GAP. 
                                             // Used to increase or decrease bandwidth
           timing_change_done = true;
         }
-		*/
+		
         break;
-        
+    */    
       case ACI_EVT_TIMING:
         /* Link connection interval changed */
         break;

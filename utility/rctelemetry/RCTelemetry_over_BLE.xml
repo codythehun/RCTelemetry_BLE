@@ -465,6 +465,9 @@
         <ServiceToAdvertise>
             <Uuid>180a</Uuid>
         </ServiceToAdvertise>
+        <ServiceToAdvertise>
+            <Uuid BaseUUID="02b20000111b4f7d931e60ca21b874fb" BaseUUIDName="RCTelemetry">0000</Uuid>
+        </ServiceToAdvertise>
         <CustomAdTypes>
             <AdType index="1">
                 <Type>19</Type>
