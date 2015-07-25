@@ -15,16 +15,17 @@ Written by Kevin Townsend/KTOWN  for Adafruit Industries.
 MIT license, check LICENSE for more information
 All text above, and the splash screen below must be included in any redistribution
 *********************************************************************/
+
 #include <SPI.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 #include <stdlib.h>
-#include <ble_system.h>
-#include <lib_aci.h>
-#include <aci_setup.h>
-#include "rctelemetry/services.h"
-
+#include <utility/ble_system.h>
+#include <utility/lib_aci.h>
+#include <utility/aci_setup.h>
+#include "utility/rctelemetry/services.h"
 #include "RCTelemetry_BLE.h"
+
 
 /* Get the service pipe data created in nRFGo Studio */
 #ifdef SERVICES_PIPE_TYPE_MAPPING_CONTENT
