@@ -25,7 +25,7 @@ All text above, and the splash screen below must be included in any redistributi
 #include <utility/aci_setup.h>
 #include "utility/rctelemetry/services.h"
 #include "RCTelemetry_BLE.h"
-
+#include "Utils.h"
 
 /* Get the service pipe data created in nRFGo Studio */
 #ifdef SERVICES_PIPE_TYPE_MAPPING_CONTENT
@@ -104,7 +104,8 @@ void RCTelemetry_BLE::setACIcallback(aci_callback aciEvent) {
 
 void RCTelemetry_BLE:: publishMeasurement(const Measurement& msr) {
 	//TODO: maybe send right now?
-	pushMsrToBuffer(msr);
+	sendMeasurement(const_cast<Measurement*>(&msr));
+	//pushMsrToBuffer(msr);
 	return;
 }
 
@@ -130,6 +131,8 @@ Measurement* RCTelemetry_BLE::peekBuffer() {
 void RCTelemetry_BLE::dequeueBuffer() {
 	--msrCount;
 	firstMsr = wrapBuffPtr(firstMsr + 1);
+	Serial.println("De-Queueing message");
+
 }
 
 void RCTelemetry_BLE::pushMsrToBuffer(const Measurement& msr) {
@@ -137,11 +140,15 @@ void RCTelemetry_BLE::pushMsrToBuffer(const Measurement& msr) {
 	*lastMsr = msr;
 	if (msrCount == MSR_BUFFER_SIZE) {
 		firstMsr = wrapBuffPtr(firstMsr + 1);
+		log_notice("Msg buffer full, start: 0x%X first: 0x%X", msrBuffer, firstMsr);
+
 		//TODO: LOG BUFFER overwrite
 	}
 	else {
 		++msrCount;
 	}
+	//Serial.println("Queueing message");
+
 }
 
 bool RCTelemetry_BLE::sendMeasurement(Measurement* msr) {
@@ -168,13 +175,30 @@ bool RCTelemetry_BLE::sendMeasurement(Measurement* msr) {
 		case Measurement::RPM: pipe = PIPE_RC_TELEMETRY_RPM_TX; break;
 		case Measurement::RSSI: pipe = PIPE_RC_TELEMETRY_RSSI_TX; buff = &msr->data.rssi; break;
 		case Measurement::TEMPERATURE: pipe = PIPE_RC_TELEMETRY_TEMPERATURE_TX; break;
+		default: return false; break;
 	}
 
 	if (lib_aci_is_pipe_available(&aci_state, pipe)) {
-		bool result = lib_aci_send_data(pipe, buff, size);
-		aci_state.data_credit_available--;
-		delay(35); // required delay between sends
+		bool result = false;
+		if (aci_state.data_credit_available > 0) {
+			bool result = lib_aci_send_data(pipe, buff, size);
+			if (result) {
+				aci_state.data_credit_available--;
+				Serial.println("Sent package");
+			}
+			else{
+				Serial.println("Failed to send");
+			}
+		}
+		else
+		{
+			Serial.println(F("No data credit available!"));
+		}
+		
 		return result;
+	}
+	else {
+	//	Serial.println("Pipe not open!");
 	}
 
 	pollACI();
@@ -221,6 +245,7 @@ void RCTelemetry_BLE::pollACI()
         case ACI_EVT_DEVICE_STARTED:
         {          
           aci_state.data_credit_total = aci_evt->params.device_started.credit_available;
+		  log_notice("Total data credits: %d", aci_state.data_credit_total);
           switch(aci_evt->params.device_started.device_mode)
           {
             case ACI_DEVICE_SETUP:
@@ -279,13 +304,13 @@ void RCTelemetry_BLE::pollACI()
         /* Get the device version of the nRF8001 and store it in the Hardware Revision String */
         lib_aci_device_version();
         
-	defaultACICallback(ACI_EVT_CONNECTED);
-	if (aci_event) 
-	  aci_event(ACI_EVT_CONNECTED);
+		defaultACICallback(ACI_EVT_CONNECTED);
+		if (aci_event) 
+		  aci_event(ACI_EVT_CONNECTED);
         
 	// TODO: how to adapt this to multiple pipes?
-  /*    case ACI_EVT_PIPE_STATUS:
-        if (lib_aci_is_pipe_available(&aci_state, PIPE_UART_OVER_BTLE_UART_TX_TX) && (false == timing_change_done))
+    //  case ACI_EVT_PIPE_STATUS:
+        if (false == timing_change_done)
         {
           lib_aci_change_timing_GAP_PPCP(); // change the timing on the link as specified in the nRFgo studio -> nRF8001 conf. -> GAP. 
                                             // Used to increase or decrease bandwidth
@@ -293,25 +318,29 @@ void RCTelemetry_BLE::pollACI()
         }
 		
         break;
-    */    
+    
       case ACI_EVT_TIMING:
         /* Link connection interval changed */
+		  //TODO: verify timing
+		  log_notice("Timing event: %d\n", aci_data.evt.params.timing.conn_rf_interval);
+
+		 
         break;
         
       case ACI_EVT_DISCONNECTED:
         /* Restart advertising ... first value is advertising time in seconds, the */
         /* second value is the advertising interval in 0.625ms units */
+		  Serial.println(F("Disconnected..."));
+			defaultACICallback(ACI_EVT_DISCONNECTED);
+			if (aci_event)
+				aci_event(ACI_EVT_DISCONNECTED);
+			timing_change_done = false;
+			lib_aci_connect(adv_timeout, adv_interval);
 
-	defaultACICallback(ACI_EVT_DISCONNECTED);
-	if (aci_event)
-	  aci_event(ACI_EVT_DISCONNECTED);
-
-	lib_aci_connect(adv_timeout, adv_interval);
-
-	defaultACICallback(ACI_EVT_DEVICE_STARTED);
-	if (aci_event)
-	  aci_event(ACI_EVT_DEVICE_STARTED);
-	break;
+			defaultACICallback(ACI_EVT_DEVICE_STARTED);
+			if (aci_event)
+				aci_event(ACI_EVT_DEVICE_STARTED);
+			break;
         
 	/*
       case ACI_EVT_DATA_RECEIVED:

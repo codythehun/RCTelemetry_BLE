@@ -93,6 +93,7 @@
     <ClInclude Include="utility\hal_platform.h" />
     <ClInclude Include="utility\lib_aci.h" />
     <ClInclude Include="utility\rctelemetry\services.h" />
+    <ClInclude Include="Utils.h" />
     <ClInclude Include="Visual Micro\.RCTelemetry_BLE.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
@@ -101,6 +102,7 @@
     <ClCompile Include="utility\aci_setup.cpp" />
     <ClCompile Include="utility\hal_aci_tl.cpp" />
     <ClCompile Include="utility\lib_aci.cpp" />
+    <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

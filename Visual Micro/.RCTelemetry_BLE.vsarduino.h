@@ -83,4 +83,6 @@ extern "C" void __cxa_pure_virtual() {;}
 #include <Measurement.h>
 #include <RCTelemetry_BLE.cpp>
 #include <RCTelemetry_BLE.h>
+#include <Utils.cpp>
+#include <Utils.h>
 #endif
